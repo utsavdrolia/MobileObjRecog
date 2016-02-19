@@ -6,7 +6,6 @@ import org.opencv.core.Mat;
 import org.opencv.core.MatOfKeyPoint;
 import org.opencv.features2d.DescriptorExtractor;
 import org.opencv.features2d.FeatureDetector;
-import org.opencv.highgui.Highgui;
 
 /**
  * Created by utsav on 2/8/16.
@@ -22,8 +21,8 @@ public class ORB extends FeatureExtractor
         //Init detector
         detector = FeatureDetector.create(FeatureDetector.ORB);
         // Read the settings file for detector
-//        detector.read(pars);
-        extractor = DescriptorExtractor.create(DescriptorExtractor.BRISK);
+        detector.read(pars);
+        extractor = DescriptorExtractor.create(DescriptorExtractor.ORB);
 //        extractor.read(pars);
     }
 
@@ -37,15 +36,5 @@ public class ORB extends FeatureExtractor
         extractor.compute(image, keypoints, descriptors);
 
         return new KeypointDescList(keypoints, descriptors);
-    }
-
-    /**
-     * Extract from image at given path
-     * @param image
-     * @return
-     */
-    public KeypointDescList extract(String image)
-    {
-        return extract(Highgui.imread(image, Highgui.CV_LOAD_IMAGE_GRAYSCALE));
     }
 }

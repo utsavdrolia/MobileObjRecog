@@ -1,8 +1,9 @@
 package org.crowdcache.mobileobjrecog;
 
 import de.greenrobot.event.EventBus;
+import org.crowdcache.Cache;
 import org.crowdcache.client.AnnotationRequester;
-import org.crowdcache.mobileobjrecog.extractors.ORB;
+import org.crowdcache.mobileobjrecog.cache.ObjectRecogCache;
 
 import java.io.*;
 
@@ -15,11 +16,12 @@ public class RequestRunner extends Thread
     private static final String LOG = "/sdcard/DCIM/Camera/Objects/log";
     private static final String SERVER_ADDRESS = "192.168.1.13:50505";
     private AnnotationRequester req;
-    private ORB orb;
+    private ObjectRecogCache cache;
+
     public RequestRunner()
     {
         req = new AnnotationRequester(SERVER_ADDRESS);
-        orb = new ORB("/sdcard/DCIM/Camera/Objects/orb_pars");
+        cache = new ObjectRecogCache(16);
     }
 
 
@@ -40,18 +42,40 @@ public class RequestRunner extends Thread
                 String[] chunks = line.split(",");
                 String img = chunks[0];
                 String imgpath = chunks[1];
-                Long start = System.currentTimeMillis();
-//                String result = req.requestAnnotation(imgpath);
-                KeypointDescList kpdesc = orb.extract(imgpath);
-                Long end = System.currentTimeMillis();
-//                resultsfile.write(img + "," + kpdesc.points.size() + "," + Long.toString(end - start) + "\n");
-                EventBus.getDefault().post(new RequestResult(img + "," + kpdesc.points.size() + "," + Long.toString(end - start)));
+                String result = "None";
+                Long end2;
+                Long start1 = System.currentTimeMillis();
+//                // Extract
+//                KeypointDescList kpdesc = orb.extract(imgpath);
+                // Check Cache
+                Cache.Result<String> res = cache.get(imgpath);
+                Long end1 = System.currentTimeMillis();
+                if(res.confidence < 0.7)
+                {
+                    // If not in Cache get from server
+                    Long start2 = System.currentTimeMillis();
+                    result = req.requestAnnotation(imgpath);
+                    end2 = System.currentTimeMillis();
+
+                    String name = result.split(",")[0];
+                    if (!name.equals("None"))
+                        cache.put(imgpath, name);
+                }
+                else
+                {
+                    result = res.value;
+                    end2 = System.currentTimeMillis();
+                }
+
+//              resultsfile.write(img + "," + kpdesc.points.size() + "," + Long.toString(end - start) + "\n");
+                EventBus.getDefault().post(new RequestResult(img + "," + res.value + "," + Long.toString(end1 - start1) + "," + result + "," + Long.toString(end2 - end1) + "," + Long.toString(end2 - start1)));
                 line = imagelist.readLine();
+                sleep(10000);
             } while (line != null);
             resultsfile.flush();
             resultsfile.close();
         }
-        catch (IOException e)
+        catch (IOException | InterruptedException e)
         {
             e.printStackTrace();
         }

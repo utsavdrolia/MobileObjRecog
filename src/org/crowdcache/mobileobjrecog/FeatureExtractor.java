@@ -1,6 +1,7 @@
 package org.crowdcache.mobileobjrecog;
 
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfByte;
 import org.opencv.highgui.Highgui;
 
 /**
@@ -24,5 +25,15 @@ public abstract class FeatureExtractor
     public KeypointDescList extract(String inputFile)
     {
         return extract(Highgui.imread(inputFile, Highgui.CV_LOAD_IMAGE_GRAYSCALE));
+    }
+
+    /**
+     * Extract feature from the image
+     * @param data the image
+     * @return
+     */
+    public KeypointDescList extract(byte[] data)
+    {
+        return extract(Highgui.imdecode(new MatOfByte(data), Highgui.CV_LOAD_IMAGE_GRAYSCALE));
     }
 }
