@@ -5,9 +5,18 @@ import org.crowdcache.LRUCache;
 import org.crowdcache.mobileobjrecog.FeatureExtractor;
 import org.crowdcache.mobileobjrecog.KeypointDescList;
 import org.crowdcache.mobileobjrecog.Matcher;
+import org.crowdcache.mobileobjrecog.extractors.BRISK;
+import org.crowdcache.mobileobjrecog.extractors.FREAK;
 import org.crowdcache.mobileobjrecog.extractors.ORB;
 import org.crowdcache.mobileobjrecog.matchers.BFMatcher_HAM;
+import org.opencv.core.Mat;
+import org.opencv.core.MatOfByte;
+import org.opencv.core.MatOfInt;
+import org.opencv.core.Size;
+import org.opencv.highgui.Highgui;
+import org.opencv.imgproc.Imgproc;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -19,16 +28,16 @@ import java.util.concurrent.*;
 public class ObjectRecogCache implements Cache<KeypointDescList, String>
 {
     private final FeatureExtractor extractor;
-    private LRUCache<String, KeypointDescList> cache;
+    private final LRUCache<String, KeypointDescList> cache;
     private Matcher matcher;
     private ExecutorService executorService;
 
     public ObjectRecogCache(Integer size)
     {
-        this.extractor = new ORB("/sdcard/DCIM/Camera/Objects/orb_pars");
+        this.extractor = new BRISK("/sdcard/DCIM/Camera/Objects/orb_pars");
         this.matcher = new BFMatcher_HAM();
         this.cache = new LRUCache<>(size);
-        this.executorService = Executors.newFixedThreadPool(size);
+        this.executorService = Executors.newFixedThreadPool(8);
     }
 
     /**
@@ -39,7 +48,7 @@ public class ObjectRecogCache implements Cache<KeypointDescList, String>
      */
     public void put(KeypointDescList key, String value)
     {
-        cache.put(value, key);
+            cache.put(value, key);
     }
 
     /**
@@ -60,48 +69,50 @@ public class ObjectRecogCache implements Cache<KeypointDescList, String>
      */
     public Result<String> parallelMatch(final KeypointDescList inputKDlist)
     {
-        HashMap<String, Future<Double>> matches = new HashMap<String, Future<Double>>(cache.size(), 4.0f);
-        Double score = Double.MIN_VALUE;
-        String ret = "None";
-        //-- Match against all DB --
-        for(final Map.Entry<String, KeypointDescList> entry : cache.entrySet())
-        {
-            matches.put(entry.getKey(), executorService.submit(new Callable<Double>()
-            {
-                public Double call() throws Exception
-                {
-                    return matcher.match(entry.getValue(), inputKDlist);
-                }
-            }));
-        }
+            HashMap<String, Future<Double>> matches = new HashMap<String, Future<Double>>(cache.size(), 4.0f);
+            Double score = Double.MIN_VALUE;
+            String ret = "None";
 
-        for(Map.Entry<String, Future<Double>> future:matches.entrySet())
-        {
-            try
+            HashMap<String, KeypointDescList> copy = new HashMap<>(cache);
+            //-- Match against all DB --
+            for (final Map.Entry<String, KeypointDescList> entry : copy.entrySet())
             {
-                Double matchscore = future.getValue().get();
-                if (matchscore > score)
+                matches.put(entry.getKey(), executorService.submit(new Callable<Double>()
                 {
-                    score = matchscore;
-                    ret = future.getKey();
+                    public Double call() throws Exception
+                    {
+                        return matcher.match(entry.getValue(), inputKDlist);
+                    }
+                }));
+            }
+
+            for (Map.Entry<String, Future<Double>> future : matches.entrySet())
+            {
+                try
+                {
+                    Double matchscore = future.getValue().get();
+                    if (matchscore > score)
+                    {
+                        score = matchscore;
+                        ret = future.getKey();
+                    }
+                } catch (InterruptedException e)
+                {
+                    e.printStackTrace();
+                } catch (ExecutionException e)
+                {
+                    e.printStackTrace();
                 }
             }
-            catch (InterruptedException e)
-            {
-                e.printStackTrace();
-            }
-            catch (ExecutionException e)
-            {
-                e.printStackTrace();
-            }
-        }
 
-        return new Result<>(score, ret);
+            return new Result<>(score, ret);
     }
 
     public Result<String> get(String imgpath)
     {
-        return this.get(this.extractor.extract(imgpath));
+        byte[] newpath = reduce(imgpath);
+        Result<String> res = this.get(this.extractor.extract(newpath));
+        return res;
     }
 
     public Result<String> get(byte[] imgpath)
@@ -109,8 +120,19 @@ public class ObjectRecogCache implements Cache<KeypointDescList, String>
         return this.get(this.extractor.extract(imgpath));
     }
 
+    protected byte[] reduce(String imgpath)
+    {
+        Mat img = Highgui.imread(imgpath, Highgui.CV_LOAD_IMAGE_GRAYSCALE);
+        Mat dst = new Mat();
+        Imgproc.resize(img, dst, new Size(img.width() / 2, img.height() / 2));
+        MatOfByte bytemat = new MatOfByte();
+        Highgui.imencode(".jpg", dst, bytemat, new MatOfInt(Highgui.CV_IMWRITE_JPEG_QUALITY, 70));
+        return bytemat.toArray();
+    }
+
     public void put(String imgpath, String value)
     {
-        this.put(this.extractor.extract(imgpath), value);
+        byte[] newpath = reduce(imgpath);
+        this.put(this.extractor.extract(newpath), value);
     }
 }
