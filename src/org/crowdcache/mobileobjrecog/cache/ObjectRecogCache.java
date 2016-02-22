@@ -37,7 +37,7 @@ public class ObjectRecogCache implements Cache<KeypointDescList, String>
         this.extractor = new BRISK("/sdcard/DCIM/Camera/Objects/orb_pars");
         this.matcher = new BFMatcher_HAM();
         this.cache = new LRUCache<>(size);
-        this.executorService = Executors.newFixedThreadPool(8);
+        this.executorService = Executors.newFixedThreadPool(size);
     }
 
     /**
@@ -111,8 +111,7 @@ public class ObjectRecogCache implements Cache<KeypointDescList, String>
     public Result<String> get(String imgpath)
     {
         byte[] newpath = reduce(imgpath);
-        Result<String> res = this.get(this.extractor.extract(newpath));
-        return res;
+        return this.get(this.extractor.extract(newpath));
     }
 
     public Result<String> get(byte[] imgpath)
@@ -126,7 +125,7 @@ public class ObjectRecogCache implements Cache<KeypointDescList, String>
         Mat dst = new Mat();
         Imgproc.resize(img, dst, new Size(img.width() / 2, img.height() / 2));
         MatOfByte bytemat = new MatOfByte();
-        Highgui.imencode(".jpg", dst, bytemat, new MatOfInt(Highgui.CV_IMWRITE_JPEG_QUALITY, 70));
+        Highgui.imencode(".jpg", dst, bytemat, new MatOfInt(Highgui.CV_IMWRITE_JPEG_QUALITY, 30));
         return bytemat.toArray();
     }
 
