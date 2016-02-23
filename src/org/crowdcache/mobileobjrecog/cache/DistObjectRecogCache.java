@@ -1,15 +1,22 @@
 package org.crowdcache.mobileobjrecog.cache;
 
 import org.apache.commons.lang3.ArrayUtils;
+import org.crowdcache.Cache;
+import org.crowdcache.mobileobjrecog.KeypointDescList;
 import org.crowdcache.rpc.CrowdRPC;
 import org.crowdcache.rpc.GetRequestCallback;
 import org.crowdcache.rpc.GetResponseCallback;
+import org.opencv.core.Mat;
+import org.opencv.core.MatOfKeyPoint;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.zip.DeflaterInputStream;
+import java.util.zip.DeflaterOutputStream;
+import java.util.zip.Inflater;
+import java.util.zip.InflaterInputStream;
 
 /**
  * Created by utsav on 2/19/16.
@@ -18,7 +25,7 @@ public class DistObjectRecogCache extends ObjectRecogCache
 {
     private final CrowdRPC rpc;
     private final ByteBuffer buffer = ByteBuffer.allocate(80 * 1024);
-
+    Long start;
     public DistObjectRecogCache(Integer size)
     {
         super(size);
@@ -34,6 +41,7 @@ public class DistObjectRecogCache extends ObjectRecogCache
     @Override
     public Result<String> get(String imgpath)
     {
+        start = System.currentTimeMillis();
 //        buffer.clear();
 //        try
 //        {
@@ -52,6 +60,36 @@ public class DistObjectRecogCache extends ObjectRecogCache
 //            e.printStackTrace();
 //        }
 //        return null;
+    }
+
+    @Override
+    public Result<String> get(Mat mat)
+    {
+        KeypointDescList list = extractor.extract(mat);
+        int rows = list.descriptions.rows();
+        int cols = list.descriptions.cols();
+        int type = list.descriptions.type();
+        byte[] data = new byte[(int) (mat.total()*mat.elemSize())];
+        ByteBuffer buf = ByteBuffer.allocate((int) (mat.total()*mat.elemSize()) + Integer.SIZE*3);
+        buf.putInt(rows);
+        buf.putInt(cols);
+        buf.putInt(type);
+        list.descriptions.get(0, 0, data);
+        buf.put(data);
+        byte[] senddata;
+        try
+        {
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            DeflaterOutputStream out = new DeflaterOutputStream(bos);
+            out.write(buf.array());
+            out.flush();
+            out.close();
+            return this.get(bos.toByteArray());
+        } catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+        return new Result<>("None");
     }
 
     @Override
@@ -88,12 +126,12 @@ public class DistObjectRecogCache extends ObjectRecogCache
     {
         Double max = Double.MAX_VALUE;
         Byte[] res = null;
-        Long start = System.currentTimeMillis();
+
         @Override
         public void done(Result<Byte[]> result)
         {
             Long end = System.currentTimeMillis() - start;
-            System.out.println("Got response" + new String(ArrayUtils.toPrimitive(result.value)) + " from peer in " + end);
+            System.out.println("Got response " + new String(ArrayUtils.toPrimitive(result.value)) + ":" + result.confidence + " from peer in " + end);
             if(result.confidence < max)
             {
                 max = result.confidence;
@@ -115,12 +153,38 @@ public class DistObjectRecogCache extends ObjectRecogCache
 
     /**
      * Wrapper around {@link ObjectRecogCache#get(byte[])} for remote get requests
-     * @param data
+     * @param compdata
      * @return
      */
-    protected Result<String> remoteget(byte[] data)
+    protected Result<String> remoteget(byte[] compdata)
     {
-        return super.get(data);
+        InflaterInputStream is = new InflaterInputStream(new ByteArrayInputStream(compdata));
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try
+        {
+            while(is.available() > 0)
+            {
+                byte[] buffer = new byte[1024];
+                int read = is.read(buffer);
+                out.write(buffer);
+            }
+            is.close();
+            out.flush();
+        } catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+        byte[] data = out.toByteArray();
+        ByteBuffer buf = ByteBuffer.wrap(data);
+        int rows = buf.getInt();
+        int cols = buf.getInt();
+        int type = buf.getInt();
+        byte[] img = new byte[buf.remaining()];
+        buf.get(img);
+        Mat desc = new Mat(rows, cols, type);
+        desc.put(0,0,img);
+        KeypointDescList list = new KeypointDescList(new MatOfKeyPoint(), desc);
+        return super.get(list);
     }
 
     /**

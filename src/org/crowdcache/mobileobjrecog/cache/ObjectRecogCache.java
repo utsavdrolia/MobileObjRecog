@@ -28,7 +28,7 @@ import java.util.concurrent.*;
  */
 public class ObjectRecogCache implements Cache<KeypointDescList, String>
 {
-    private final FeatureExtractor extractor;
+    protected final FeatureExtractor extractor;
     private final LRUCache<String, KeypointDescList> cache;
     private Matcher matcher;
     private ExecutorService executorService;
@@ -111,7 +111,7 @@ public class ObjectRecogCache implements Cache<KeypointDescList, String>
 
     public Result<String> get(String imgpath)
     {
-        byte[] newpath = reduce(imgpath);
+        Mat newpath = reduce(imgpath);
         return this.get(this.extractor.extract(newpath));
     }
 
@@ -120,19 +120,24 @@ public class ObjectRecogCache implements Cache<KeypointDescList, String>
         return this.get(this.extractor.extract(imgpath));
     }
 
-    protected byte[] reduce(String imgpath)
+    protected Mat reduce(String imgpath)
     {
         Mat img = Highgui.imread(imgpath, Highgui.CV_LOAD_IMAGE_GRAYSCALE);
         Mat dst = new Mat();
         Imgproc.resize(img, dst, new Size(img.width() / 2, img.height() / 2));
-        MatOfByte bytemat = new MatOfByte();
-        Highgui.imencode(".jpg", dst, bytemat, new MatOfInt(Highgui.CV_IMWRITE_JPEG_QUALITY, 30));
-        return bytemat.toArray();
+//        MatOfByte bytemat = new MatOfByte();
+//        Highgui.imencode(".jpg", dst, bytemat, new MatOfInt(Highgui.CV_IMWRITE_JPEG_QUALITY, 30));
+        return dst;
     }
 
     public void put(String imgpath, String value)
     {
-        byte[] newpath = reduce(imgpath);
+        Mat newpath = reduce(imgpath);
         this.put(this.extractor.extract(newpath), value);
+    }
+
+    public Result<String> get(Mat mat)
+    {
+        return this.get(this.extractor.extract(mat));
     }
 }

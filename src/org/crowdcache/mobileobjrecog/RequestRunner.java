@@ -51,7 +51,7 @@ public class RequestRunner extends Thread
                 // Check Cache
                 Cache.Result<String> res = cache.get(imgpath);
                 Long end1 = System.currentTimeMillis();
-                if(res.confidence > 67)
+                if(res.confidence > 70)
                 {
                     // If not in Cache get from server
                     Long start2 = System.currentTimeMillis();
