@@ -65,7 +65,7 @@ public class DistObjectRecogCache extends ObjectRecogCache
 
         // Compute on local data
 //        Result<String> localres = super.get(imgpath);
-        Result<String> localres = new Result<>(Double.MIN_VALUE, "None");
+        Result<String> localres = new Result<>(Double.MAX_VALUE, "None");
 
         try
         {
@@ -78,7 +78,7 @@ public class DistObjectRecogCache extends ObjectRecogCache
         Result<String> remoteres = callback.get();
         //TODO This might be null. Can add a timeout for more results to arrive
         if(remoteres != null)
-            if(remoteres.confidence > localres.confidence)
+            if(remoteres.confidence < localres.confidence)
                 return remoteres;
 
         return localres;
@@ -86,7 +86,7 @@ public class DistObjectRecogCache extends ObjectRecogCache
 
     public class RespCallback extends GetResponseCallback
     {
-        Double max = Double.MIN_VALUE;
+        Double max = Double.MAX_VALUE;
         Byte[] res = null;
         Long start = System.currentTimeMillis();
         @Override
@@ -94,7 +94,7 @@ public class DistObjectRecogCache extends ObjectRecogCache
         {
             Long end = System.currentTimeMillis() - start;
             System.out.println("Got response" + new String(ArrayUtils.toPrimitive(result.value)) + " from peer in " + end);
-            if(result.confidence > max)
+            if(result.confidence < max)
             {
                 max = result.confidence;
                 res = result.value;
@@ -133,6 +133,7 @@ public class DistObjectRecogCache extends ObjectRecogCache
         {
             Long start = System.currentTimeMillis();
             Result<String> result = remoteget(data);
+//            Result<String> result = new Result<>(Double.MIN_VALUE, "None");
             Long end = System.currentTimeMillis() - start;
             System.out.println("Computed Request in " + end);
             return new Result<>(result.confidence, ArrayUtils.toObject(result.value.getBytes()));

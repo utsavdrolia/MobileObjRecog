@@ -9,6 +9,7 @@ import org.crowdcache.mobileobjrecog.extractors.BRISK;
 import org.crowdcache.mobileobjrecog.extractors.FREAK;
 import org.crowdcache.mobileobjrecog.extractors.ORB;
 import org.crowdcache.mobileobjrecog.matchers.BFMatcher_HAM;
+import org.crowdcache.mobileobjrecog.matchers.BFMatcher_HAM2;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
 import org.opencv.core.MatOfInt;
@@ -34,8 +35,8 @@ public class ObjectRecogCache implements Cache<KeypointDescList, String>
 
     public ObjectRecogCache(Integer size)
     {
-        this.extractor = new BRISK("/sdcard/DCIM/Camera/Objects/orb_pars");
-        this.matcher = new BFMatcher_HAM();
+        this.extractor = new ORB("/sdcard/DCIM/Camera/Objects/orb_pars");
+        this.matcher = new BFMatcher_HAM2();
         this.cache = new LRUCache<>(size);
         this.executorService = Executors.newFixedThreadPool(size);
     }
@@ -70,7 +71,7 @@ public class ObjectRecogCache implements Cache<KeypointDescList, String>
     public Result<String> parallelMatch(final KeypointDescList inputKDlist)
     {
             HashMap<String, Future<Double>> matches = new HashMap<String, Future<Double>>(cache.size(), 4.0f);
-            Double score = Double.MIN_VALUE;
+            Double score = Double.MAX_VALUE;
             String ret = "None";
 
             HashMap<String, KeypointDescList> copy = new HashMap<>(cache);
@@ -91,7 +92,7 @@ public class ObjectRecogCache implements Cache<KeypointDescList, String>
                 try
                 {
                     Double matchscore = future.getValue().get();
-                    if (matchscore > score)
+                    if (matchscore < score)
                     {
                         score = matchscore;
                         ret = future.getKey();

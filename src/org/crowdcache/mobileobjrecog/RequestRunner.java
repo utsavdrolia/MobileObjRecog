@@ -3,6 +3,7 @@ package org.crowdcache.mobileobjrecog;
 import de.greenrobot.event.EventBus;
 import org.crowdcache.Cache;
 import org.crowdcache.client.AnnotationRequester;
+import org.crowdcache.mobileobjrecog.cache.DistObjectRecogCache;
 import org.crowdcache.mobileobjrecog.cache.ObjectRecogCache;
 
 import java.io.*;
@@ -16,12 +17,12 @@ public class RequestRunner extends Thread
     private static final String LOG = "/sdcard/DCIM/Camera/Objects/log";
     private static final String SERVER_ADDRESS = "192.168.1.13:50505";
     private AnnotationRequester req;
-    private ObjectRecogCache cache;
+    private DistObjectRecogCache cache;
 
     public RequestRunner()
     {
         req = new AnnotationRequester(SERVER_ADDRESS);
-        cache = new ObjectRecogCache(16);
+        cache = new DistObjectRecogCache(16);
     }
 
 
@@ -50,7 +51,7 @@ public class RequestRunner extends Thread
                 // Check Cache
                 Cache.Result<String> res = cache.get(imgpath);
                 Long end1 = System.currentTimeMillis();
-                if(res.confidence < 0.7)
+                if(res.confidence > 67)
                 {
                     // If not in Cache get from server
                     Long start2 = System.currentTimeMillis();
