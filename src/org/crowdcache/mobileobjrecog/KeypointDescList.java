@@ -20,7 +20,14 @@ public class KeypointDescList
 
     public KeypointDescList(MatOfKeyPoint points, Mat descriptions)
     {
-        this.points = points.toList();
+        if(points != null)
+        {
+            this.points = points.toList();
+        }
+        else
+        {
+            this.points = null;
+        }
         this.descriptions = descriptions;
     }
 }
