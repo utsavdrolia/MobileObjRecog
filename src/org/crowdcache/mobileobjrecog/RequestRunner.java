@@ -15,14 +15,15 @@ public class RequestRunner extends Thread
 {
     private static final String PATH_TO_IMAGES = "/sdcard/DCIM/Camera/Objects/qlist.txt";
     private static final String LOG = "/sdcard/DCIM/Camera/Objects/log";
-    private static final String SERVER_ADDRESS = "192.168.1.13:50505";
+    private static final String SERVER_ADDRESS = "192.168.1.9:50505";
+    private static final Double CONFIDENCE_THRESHOLD = 75.0;
     private AnnotationRequester req;
     private DistObjectRecogCache cache;
 
     public RequestRunner()
     {
         req = new AnnotationRequester(SERVER_ADDRESS);
-        cache = new DistObjectRecogCache(16);
+        cache = new DistObjectRecogCache(16, CONFIDENCE_THRESHOLD, 300l);
     }
 
 
@@ -51,7 +52,7 @@ public class RequestRunner extends Thread
                 // Check Cache
                 Cache.Result<String> res = cache.get(imgpath);
                 Long end1 = System.currentTimeMillis();
-                if(res.confidence > 70)
+                if(res.confidence > CONFIDENCE_THRESHOLD)
                 {
                     // If not in Cache get from server
                     Long start2 = System.currentTimeMillis();

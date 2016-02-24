@@ -23,18 +23,25 @@ import java.util.zip.InflaterInputStream;
  */
 public class DistObjectRecogCache extends ObjectRecogCache
 {
+    private long TIMEOUT = 500;
+    private Double CONFIDENCE_THRESHOLD = Double.MAX_VALUE;
     private final CrowdRPC rpc;
     private final ByteBuffer buffer = ByteBuffer.allocate(80 * 1024);
     Long start;
-    public DistObjectRecogCache(Integer size)
+    public DistObjectRecogCache(Integer size, Double thresh, Long timeout)
     {
         super(size);
+        if(thresh != null)
+            CONFIDENCE_THRESHOLD = thresh;
+        if(timeout != null)
+            TIMEOUT = timeout;
         this.rpc = new CrowdRPC(new RequestCallback());
         rpc.start();
     }
 
     /**
      * Check across all caches for image at given path
+     * Extracts features from the given image and sends it to remote peers for matching
      * @param imgpath
      * @return
      */
@@ -62,14 +69,22 @@ public class DistObjectRecogCache extends ObjectRecogCache
 //        return null;
     }
 
+    /**
+     * Extracts features from the given image and sends it to remote peers for matching
+     * @param mat
+     * @return {@link org.crowdcache.Cache.Result} of match
+     */
     @Override
     public Result<String> get(Mat mat)
     {
+        // Extract descriptors
         KeypointDescList list = extractor.extract(mat);
         int rows = list.descriptions.rows();
         int cols = list.descriptions.cols();
         int type = list.descriptions.type();
         byte[] data = new byte[(int) (mat.total()*mat.elemSize())];
+
+        // Prepare for sending
         ByteBuffer buf = ByteBuffer.allocate((int) (mat.total()*mat.elemSize()) + Integer.SIZE*3);
         buf.putInt(rows);
         buf.putInt(cols);
@@ -77,6 +92,8 @@ public class DistObjectRecogCache extends ObjectRecogCache
         list.descriptions.get(0, 0, data);
         buf.put(data);
         byte[] senddata;
+
+        // Compress and send
         try
         {
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -84,58 +101,70 @@ public class DistObjectRecogCache extends ObjectRecogCache
             out.write(buf.array());
             out.flush();
             out.close();
-            return this.get(bos.toByteArray());
+            return this.queryRemote(bos.toByteArray());
         } catch (IOException e)
         {
             e.printStackTrace();
         }
-        return new Result<>("None");
+        return new Result<>(Double.MAX_VALUE, "None");
     }
 
-    @Override
-    public Result<String> get(byte[] imgpath)
+    /**
+     * Send descriptors to peers and wait for results
+     * @param descriptors
+     * @return
+     */
+    private Result<String> queryRemote(byte[] descriptors)
     {
         // Create a new callback
         RespCallback callback = new RespCallback();
 
         // Issue rpc request
-        this.rpc.get(imgpath, callback);
+        int numpeers = this.rpc.get(descriptors, callback);
 
-        // Compute on local data
-//        Result<String> localres = super.get(imgpath);
         Result<String> localres = new Result<>(Double.MAX_VALUE, "None");
 
-        try
+        Long end = System.currentTimeMillis();
+        Result<String> remoteres;
+
+        // While not timeout, check for responses
+        while((end - start) < TIMEOUT)
         {
-            Thread.sleep(400);
-        } catch (InterruptedException e)
-        {
-            e.printStackTrace();
+            if(callback.getNumReplies() > 0)
+            {
+                // Get the remote request's results
+                remoteres = callback.get();
+                if (remoteres.confidence < CONFIDENCE_THRESHOLD)
+                    return remoteres;
+                else if (callback.getNumReplies() >= numpeers)
+                    break;
+            }
+            try
+            {
+                Thread.sleep(10);
+            } catch (InterruptedException e)
+            {
+                e.printStackTrace();
+            }
+            end = System.currentTimeMillis();
         }
-        // Get the remote request's results
-        Result<String> remoteres = callback.get();
-        //TODO This might be null. Can add a timeout for more results to arrive
-        if(remoteres != null)
-            if(remoteres.confidence < localres.confidence)
-                return remoteres;
 
         return localres;
     }
 
     public class RespCallback extends GetResponseCallback
     {
-        Double max = Double.MAX_VALUE;
-        Byte[] res = null;
-
+        private Result<String> bestresult = new Result<String>(Double.MAX_VALUE, "None");
         @Override
         public void done(Result<Byte[]> result)
         {
             Long end = System.currentTimeMillis() - start;
-            System.out.println("Got response " + new String(ArrayUtils.toPrimitive(result.value)) + ":" + result.confidence + " from peer in " + end);
-            if(result.confidence < max)
+            String annotation = new String(ArrayUtils.toPrimitive(result.value));
+            System.out.println("Got response " + annotation + ":" + result.confidence + " from peer in " + end);
+            if(result.confidence < bestresult.confidence)
             {
-                max = result.confidence;
-                res = result.value;
+                bestresult.confidence = result.confidence;
+                bestresult.value = annotation;
             }
         }
 
@@ -145,9 +174,7 @@ public class DistObjectRecogCache extends ObjectRecogCache
          */
         protected Result<String> get()
         {
-            if(res != null)
-                return new Result<>(this.max, new String(ArrayUtils.toPrimitive(this.res)));
-            return null;
+            return bestresult;
         }
     }
 
@@ -182,8 +209,8 @@ public class DistObjectRecogCache extends ObjectRecogCache
         byte[] img = new byte[buf.remaining()];
         buf.get(img);
         Mat desc = new Mat(rows, cols, type);
-        desc.put(0,0,img);
-        KeypointDescList list = new KeypointDescList(new MatOfKeyPoint(), desc);
+        desc.put(0, 0, img);
+        KeypointDescList list = new KeypointDescList(null, desc);
         return super.get(list);
     }
 
