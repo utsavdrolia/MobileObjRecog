@@ -91,22 +91,23 @@ public class DistObjectRecogCache extends ObjectRecogCache
         buf.putInt(type);
         list.descriptions.get(0, 0, data);
         buf.put(data);
-        byte[] senddata;
+        return this.queryRemote(buf.array());
+//        byte[] senddata;
 
-        // Compress and send
-        try
-        {
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            DeflaterOutputStream out = new DeflaterOutputStream(bos);
-            out.write(buf.array());
-            out.flush();
-            out.close();
-            return this.queryRemote(bos.toByteArray());
-        } catch (IOException e)
-        {
-            e.printStackTrace();
-        }
-        return new Result<>(Double.MAX_VALUE, "None");
+//        // Compress and send
+//        try
+//        {
+//            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+//            DeflaterOutputStream out = new DeflaterOutputStream(bos);
+//            out.write(buf.array());
+//            out.flush();
+//            out.close();
+//            return this.queryRemote(bos.toByteArray());
+//        } catch (IOException e)
+//        {
+//            e.printStackTrace();
+//        }
+//        return new Result<>(Double.MAX_VALUE, "None");
     }
 
     /**
@@ -120,7 +121,8 @@ public class DistObjectRecogCache extends ObjectRecogCache
         RespCallback callback = new RespCallback();
 
         // Issue rpc request
-        int numpeers = this.rpc.get(descriptors, callback);
+//        int numpeers = this.rpc.get(descriptors, callback);
+        int numpeers = this.rpc.get(descriptors, callback, 5);
 
         Result<String> localres = new Result<>(Double.MAX_VALUE, "None");
 
@@ -185,24 +187,24 @@ public class DistObjectRecogCache extends ObjectRecogCache
      */
     protected Result<String> remoteget(byte[] compdata)
     {
-        InflaterInputStream is = new InflaterInputStream(new ByteArrayInputStream(compdata));
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        try
-        {
-            while(is.available() > 0)
-            {
-                byte[] buffer = new byte[1024];
-                int read = is.read(buffer);
-                out.write(buffer);
-            }
-            is.close();
-            out.flush();
-        } catch (IOException e)
-        {
-            e.printStackTrace();
-        }
-        byte[] data = out.toByteArray();
-        ByteBuffer buf = ByteBuffer.wrap(data);
+//        InflaterInputStream is = new InflaterInputStream(new ByteArrayInputStream(compdata));
+//        ByteArrayOutputStream out = new ByteArrayOutputStream();
+//        try
+//        {
+//            while(is.available() > 0)
+//            {
+//                byte[] buffer = new byte[1024];
+//                int read = is.read(buffer);
+//                out.write(buffer);
+//            }
+//            is.close();
+//            out.flush();
+//        } catch (IOException e)
+//        {
+//            e.printStackTrace();
+//        }
+//        byte[] data = out.toByteArray();
+        ByteBuffer buf = ByteBuffer.wrap(compdata);
         int rows = buf.getInt();
         int cols = buf.getInt();
         int type = buf.getInt();
@@ -214,6 +216,7 @@ public class DistObjectRecogCache extends ObjectRecogCache
         return super.get(list);
     }
 
+
     /**
      * The callback to be called if this device gets a get-request
      */
@@ -224,9 +227,8 @@ public class DistObjectRecogCache extends ObjectRecogCache
         {
             Long start = System.currentTimeMillis();
             Result<String> result = remoteget(data);
-//            Result<String> result = new Result<>(Double.MIN_VALUE, "None");
             Long end = System.currentTimeMillis() - start;
-            System.out.println("Computed Request in " + end);
+            System.out.println("Computed Request: " + result.value + ":" + result.confidence);
             return new Result<>(result.confidence, ArrayUtils.toObject(result.value.getBytes()));
         }
     }
