@@ -16,14 +16,14 @@ public class RequestRunner extends Thread
     private static final String PATH_TO_IMAGES = "/sdcard/DCIM/Camera/Objects/qlist.txt";
     private static final String LOG = "/sdcard/DCIM/Camera/Objects/log";
     private static final String SERVER_ADDRESS = "192.168.1.9:50505";
-    private static final Double CONFIDENCE_THRESHOLD = 75.0;
+    private static final Double CONFIDENCE_THRESHOLD = 63.0;
     private AnnotationRequester req;
     private DistObjectRecogCache cache;
 
     public RequestRunner()
     {
         req = new AnnotationRequester(SERVER_ADDRESS);
-        cache = new DistObjectRecogCache(16, CONFIDENCE_THRESHOLD, 300l);
+        cache = new DistObjectRecogCache(16, CONFIDENCE_THRESHOLD, 500l);
     }
 
 
@@ -39,12 +39,16 @@ public class RequestRunner extends Thread
             BufferedReader imagelist = new BufferedReader(new FileReader(PATH_TO_IMAGES));
             BufferedWriter resultsfile = new BufferedWriter(new FileWriter(LOG));
             String line = imagelist.readLine();
+            Long starttime = System.currentTimeMillis();
             do
             {
                 String[] chunks = line.split(",");
                 String img = chunks[0];
                 String imgpath = chunks[1];
+                Long reqtime = Long.valueOf(chunks[2]);
                 String result = "None";
+                while((System.currentTimeMillis() - starttime)/1000 < reqtime)
+                    sleep(100);
                 Long end2;
                 Long start1 = System.currentTimeMillis();
 //                // Extract
@@ -72,7 +76,6 @@ public class RequestRunner extends Thread
 //              resultsfile.write(img + "," + kpdesc.points.size() + "," + Long.toString(end - start) + "\n");
                 EventBus.getDefault().post(new RequestResult(img + "," + res.value + "," + Long.toString(end1 - start1) + "," + result + "," + Long.toString(end2 - end1) + "," + Long.toString(end2 - start1)));
                 line = imagelist.readLine();
-                sleep(10000);
             } while (line != null);
             resultsfile.flush();
             resultsfile.close();
