@@ -15,7 +15,8 @@ public class RequestRunner extends Thread
 {
     private static final String PATH_TO_IMAGES = "/sdcard/DCIM/Camera/Objects/qlist.txt";
     private static final String LOG = "/sdcard/DCIM/Camera/Objects/log";
-    private static final String SERVER_ADDRESS = "192.168.1.9:50505";
+    private static final String FINISH = "/sdcard/DCIM/Camera/Objects/finish";
+    private static final String SERVER_ADDRESS = "192.168.1.13:50505";
     private static final Double CONFIDENCE_THRESHOLD = 63.0;
     private AnnotationRequester req;
     private DistObjectRecogCache cache;
@@ -23,12 +24,13 @@ public class RequestRunner extends Thread
     public RequestRunner()
     {
         req = new AnnotationRequester(SERVER_ADDRESS);
-        cache = new DistObjectRecogCache(16, CONFIDENCE_THRESHOLD, 500l);
+        cache = new DistObjectRecogCache(10, CONFIDENCE_THRESHOLD, 2000l);
     }
 
 
-    public void requestAnnotations() throws IOException
+    public void requestAnnotations(int intExtra) throws IOException
     {
+        cache.setTIMEOUT(intExtra);
         this.start();
     }
 
@@ -36,10 +38,13 @@ public class RequestRunner extends Thread
     {
         try
         {
+            File finish = new File(FINISH);
+            finish.delete();
             BufferedReader imagelist = new BufferedReader(new FileReader(PATH_TO_IMAGES));
             BufferedWriter resultsfile = new BufferedWriter(new FileWriter(LOG));
             String line = imagelist.readLine();
             Long starttime = System.currentTimeMillis();
+            Byte cachehit = 0;
             do
             {
                 String[] chunks = line.split(",");
@@ -47,6 +52,8 @@ public class RequestRunner extends Thread
                 String imgpath = chunks[1];
                 Long reqtime = Long.valueOf(chunks[2]);
                 String result = "None";
+                cachehit = 0;
+
                 while((System.currentTimeMillis() - starttime)/1000 < reqtime)
                     sleep(100);
                 Long end2;
@@ -71,32 +78,22 @@ public class RequestRunner extends Thread
                 {
                     result = res.value;
                     end2 = System.currentTimeMillis();
+                    cachehit = 1;
                 }
 
-//              resultsfile.write(img + "," + kpdesc.points.size() + "," + Long.toString(end - start) + "\n");
+                resultsfile.write(img + "," + result + "," + Long.toString(end2 - start1) + "," + cachehit + "\n");
                 EventBus.getDefault().post(new RequestResult(img + "," + res.value + "," + Long.toString(end1 - start1) + "," + result + "," + Long.toString(end2 - end1) + "," + Long.toString(end2 - start1)));
                 line = imagelist.readLine();
             } while (line != null);
             resultsfile.flush();
             resultsfile.close();
+            BufferedWriter finishfile = new BufferedWriter(new FileWriter(FINISH));
+            finishfile.write("1");
+            finishfile.close();
         }
         catch (IOException | InterruptedException e)
         {
             e.printStackTrace();
-        }
-    }
-
-    public class RequestResult
-    {
-        private String result;
-        public RequestResult(String s)
-        {
-            result = s;
-        }
-
-        public String getResult()
-        {
-            return result;
         }
     }
 }
