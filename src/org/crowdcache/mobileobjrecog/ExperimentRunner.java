@@ -1,9 +1,13 @@
 package org.crowdcache.mobileobjrecog;
 
+import edu.cmu.edgecache.objrec.opencv.Util;
 import edu.cmu.edgecache.objrec.rpc.ObjRecClient;
+import org.greenrobot.eventbus.EventBus;
 
-
-import java.io.*;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 
 import static edu.cmu.edgecache.objrec.opencv.Util.evaluateAsync;
 
@@ -49,7 +53,7 @@ public class ExperimentRunner extends Thread
             File finish = new File(FINISH);
             finish.delete();
 
-            evaluateAsync(mObjRecClient, tracepath, resultspath);
+            evaluateAsync(mObjRecClient, tracepath, resultspath, new PrintCallBack());
 
             // Create finish file
             BufferedWriter finishfile = new BufferedWriter(new FileWriter(FINISH));
@@ -59,6 +63,15 @@ public class ExperimentRunner extends Thread
         catch (IOException | InterruptedException e)
         {
             e.printStackTrace();
+        }
+    }
+
+    private class PrintCallBack extends Util.AppCallBack
+    {
+        @Override
+        public void call(String req, String annotation, long latency)
+        {
+            EventBus.getDefault().post(new RequestResult(req + "," + annotation + "," + latency));
         }
     }
 }
