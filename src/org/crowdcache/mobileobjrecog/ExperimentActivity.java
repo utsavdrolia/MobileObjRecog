@@ -9,7 +9,6 @@ import android.os.StrictMode;
 import android.view.WindowManager;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
-import org.crowdcache.mobileobjrecog.apps.R;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
@@ -19,14 +18,13 @@ import java.util.ArrayList;
 /**
  * Created by utsav on 2/21/17.
  */
-public abstract class ExperimentActivity extends OpenCVActivity
+public abstract class   ExperimentActivity extends OpenCVActivity
 {
     private ArrayAdapter<String> mLogAdapter;
     private ArrayList<String> mListLog;
     private ListView mListView;
 
-    private static final String EXPERIMENT = "EXPERIMENT";
-    private static final String EXPERIMENTINTENT = "org.crowdcache.app.intent." + EXPERIMENT;
+    private static final String EXPERIMENTINTENT = "org.crowdcache.app.intent.EXPERIMENT";
 
     /**
      * Called when the activity is first created.
@@ -57,6 +55,7 @@ public abstract class ExperimentActivity extends OpenCVActivity
                 String action = intent.getAction();
                 if (action.equals(EXPERIMENTINTENT))
                 {
+                    setLogText("Received Intent");
                     experimentIntentReceived(intent);
                 }
             }
