@@ -3,6 +3,8 @@ package org.crowdcache.mobileobjrecog;
 import edu.cmu.edgecache.objrec.opencv.Util;
 import edu.cmu.edgecache.objrec.rpc.ObjRecClient;
 import org.greenrobot.eventbus.EventBus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -21,6 +23,8 @@ public class ExperimentRunner extends Thread
     private final String resultspath;
     private ObjRecClient mObjRecClient;
     private String tracepath;
+    final static Logger logger = LoggerFactory.getLogger(ExperimentRunner.class);
+
 
     /**
      *
@@ -55,10 +59,13 @@ public class ExperimentRunner extends Thread
 
             evaluateAsync(mObjRecClient, tracepath, resultspath, new PrintCallBack());
 
+            logger.info("Finished evaluation");
+
             // Create finish file
             BufferedWriter finishfile = new BufferedWriter(new FileWriter(FINISH));
             finishfile.write("1");
             finishfile.close();
+            logger.info("Wrote Finish file");
         }
         catch (IOException | InterruptedException e)
         {
