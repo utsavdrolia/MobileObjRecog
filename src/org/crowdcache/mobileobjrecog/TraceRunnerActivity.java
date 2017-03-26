@@ -12,10 +12,11 @@ import java.io.IOException;
  */
 public class TraceRunnerActivity extends ExperimentActivity
 {
-    private static final String DB = "DBPATH";
     private static final String QUERY = "QUERYPATH";
     private static final String FEATURE = "FEATURETYPE";
     private static final String FEATURE_PARS = "FEATUREPARSPATH";
+    private static final String DB_FEATURE_PARS = "DB_FEATUREPARSPATH";
+    private static final String DBLIST = "DBLIST_PATH";
     private static final String MATCHER = "MATCHERTYPE";
     private static final String MATCHER_PARS = "MATCHERPARSPATH";
     private static final String FINISHPATH = "FINISHPATH";
@@ -29,6 +30,8 @@ public class TraceRunnerActivity extends ExperimentActivity
     private static final String DEVICE_ONLY = "DEVICE_ONLY";
     private static final String SERVER_BASED = "SERVER_BASED";
     private static final String DEVICE_CACHE = "DEVICE_CACHE";
+    private static final String PREFETCH_CACHE = "PREFETCH_CACHE";
+
 
     private ExperimentRunner mRunner;
 
@@ -36,34 +39,50 @@ public class TraceRunnerActivity extends ExperimentActivity
     public void experimentIntentReceived(Intent intent)
     {
         ObjRecClient objRecClient = null;
+        boolean async = true;
         try
         {
             switch (intent.getStringExtra(EXPERIMENT_TYPE))
             {
                 case DEVICE_ONLY:
+                    objRecClient = Util.createLocalObjRecClient(intent.getIntExtra(FEATURE, Util.ORB),
+                                                                intent.getStringExtra(FEATURE_PARS),
+                                                                intent.getStringExtra(DB_FEATURE_PARS),
+                                                                intent.getIntExtra(MATCHER, Util.BIN_NN),
+                                                                intent.getStringExtra(MATCHER_PARS),
+                                                                3,
+                                                                0.5,
+                                                                intent.getStringExtra(DBLIST),
+                                                                Names.Device);
+                    async = false;
                     break;
                 case SERVER_BASED:
                     objRecClient = new ObjRecClient(intent.getStringExtra(SERVER_ADD));
                     break;
                 case DEVICE_CACHE:
-                    objRecClient = Util.createOptCacheObjRecClient(intent.getIntExtra(FEATURE,
-                                                                                               Util.ORB),
-                                                                            intent.getStringExtra(
-                                                                                    FEATURE_PARS),
-                                                                            intent.getIntExtra(MATCHER,
-                                                                                               Util.BIN_NN),
-                                                                            intent.getStringExtra(
-                                                                                    MATCHER_PARS),
-                                                                            3,
-                                                                            0.5,
-                                                                            intent.getStringExtra(
-                                                                                    SERVER_ADD),
-                                                                            Names.Edge,
-                                                                            intent.getStringExtra(F_K_PARS),
-                                                                            intent.getStringExtra(
-                                                                                    RECALL_PARS),
-                                                                            intent.getStringExtra(
-                                                                                    ALL_OBJECTS));
+                    objRecClient = Util.createOptCacheObjRecClient(intent.getIntExtra(FEATURE, Util.ORB),
+                                                                   intent.getStringExtra(FEATURE_PARS),
+                                                                   intent.getIntExtra(MATCHER, Util.BIN_NN),
+                                                                   intent.getStringExtra(MATCHER_PARS),
+                                                                   3,
+                                                                   0.5,
+                                                                   intent.getStringExtra(SERVER_ADD),
+                                                                   Names.Device,
+                                                                   intent.getStringExtra(F_K_PARS),
+                                                                   intent.getStringExtra(RECALL_PARS),
+                                                                   intent.getStringExtra(ALL_OBJECTS));
+                    break;
+                case PREFETCH_CACHE:
+                    objRecClient = Util.createPrefetchedObjRecClient(intent.getIntExtra(FEATURE, Util.ORB),
+                                                                     intent.getStringExtra(FEATURE_PARS),
+                                                                     intent.getIntExtra(MATCHER, Util.BIN_NN),
+                                                                     intent.getStringExtra(MATCHER_PARS),
+                                                                     3,
+                                                                     0.5,
+                                                                     intent.getStringExtra(SERVER_ADD),
+                                                                     Names.Device,
+                                                                     intent.getStringExtra(F_K_PARS),
+                                                                     intent.getStringExtra(RECALL_PARS));
                     break;
                 default:
                     // Server based
@@ -72,7 +91,8 @@ public class TraceRunnerActivity extends ExperimentActivity
             mRunner = new ExperimentRunner(
                     objRecClient,
                     intent.getStringExtra(FINISHPATH),
-                    intent.getStringExtra(RESULTPATH), intent.getStringExtra(QUERY)
+                    intent.getStringExtra(RESULTPATH), intent.getStringExtra(QUERY),
+                    async
             );
             mRunner.start();
         } catch (IOException e)

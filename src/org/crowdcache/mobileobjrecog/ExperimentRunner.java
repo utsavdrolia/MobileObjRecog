@@ -11,6 +11,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 
+import static edu.cmu.edgecache.objrec.opencv.Util.evaluate;
 import static edu.cmu.edgecache.objrec.opencv.Util.evaluateAsync;
 
 /**
@@ -23,6 +24,7 @@ public class ExperimentRunner extends Thread
     private final String resultspath;
     private ObjRecClient mObjRecClient;
     private String tracepath;
+    private boolean async = true;
     final static Logger logger = LoggerFactory.getLogger(ExperimentRunner.class);
 
 
@@ -38,12 +40,14 @@ public class ExperimentRunner extends Thread
     public ExperimentRunner(ObjRecClient objRecClient,
                             String finish,
                             String resultspath,
-                            String tracepath)
+                            String tracepath,
+                            boolean async)
     {
         mObjRecClient = objRecClient;
         FINISH = finish;
         this.resultspath = resultspath;
         this.tracepath = tracepath;
+        this.async = async;
     }
 
     /**
@@ -57,7 +61,10 @@ public class ExperimentRunner extends Thread
             File finish = new File(FINISH);
             finish.delete();
 
-            evaluateAsync(mObjRecClient, tracepath, resultspath, new PrintCallBack());
+            if(async)
+                evaluateAsync(mObjRecClient, tracepath, resultspath, new PrintCallBack());
+            else
+                evaluate(mObjRecClient, tracepath, resultspath, new PrintCallBack());
 
             logger.info("Finished evaluation");
 
