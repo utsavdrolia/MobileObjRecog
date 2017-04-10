@@ -32,6 +32,7 @@ public class TraceRunnerActivity extends ExperimentActivity
     private static final String SERVER_ADD = "SERVER_ADD";
     private static final String F_K_PARS = "F_K";
     private static final String RECALL_PARS = "RECALL_K";
+    private static final String COEFFS_JSON = "COEFFS_JSON";
     private static final String ALL_OBJECTS = "ALL_OBJECTS";
     private static final String NUM_PREFETCH_FEATURES = "NUM_PREFETCH_FEATURES";
 
@@ -40,6 +41,7 @@ public class TraceRunnerActivity extends ExperimentActivity
     private static final String SERVER_BASED = "SERVER_BASED";
     private static final String DEVICE_CACHE = "DEVICE_CACHE";
     private static final String PREFETCH_CACHE = "PREFETCH_CACHE";
+    private static final String MULTI_PREFETCH_CACHE = "MULTI_PREFETCH_CACHE";
 
 
     @Override
@@ -93,6 +95,18 @@ public class TraceRunnerActivity extends ExperimentActivity
                                                                      Names.Device,
                                                                      intent.getStringExtra(F_K_PARS),
                                                                      intent.getStringExtra(RECALL_PARS),
+                                                                     intent.getIntExtra(NUM_PREFETCH_FEATURES, 800));
+                    break;
+                case MULTI_PREFETCH_CACHE:
+                    objRecClient = Util.createMultiExtractorPrefetchedObjRecClient(intent.getIntExtra(FEATURE, Util.ORB),
+                                                                     intent.getStringExtra(FEATURE_PARS),
+                                                                     intent.getIntExtra(MATCHER, Util.BIN_NN),
+                                                                     intent.getStringExtra(MATCHER_PARS),
+                                                                     3,
+                                                                     0.5,
+                                                                     intent.getStringExtra(SERVER_ADD),
+                                                                     Names.Device,
+                                                                     intent.getStringExtra(COEFFS_JSON),
                                                                      intent.getIntExtra(NUM_PREFETCH_FEATURES, 800));
                     break;
                 default:
